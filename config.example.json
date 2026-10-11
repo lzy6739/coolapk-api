@@ -1,0 +1,7 @@
+{
+  "device_model": "RMX3461",
+  "host_ip": "192.168.1.100",
+  "mitm_venv": "/tmp/mitmproxy-venv",
+  "mitm_port": 8080,
+  "token_file": ".coolapk_token.json"
+}
