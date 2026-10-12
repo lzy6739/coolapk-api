@@ -20,7 +20,7 @@ Configuration (env vars override config file):
 Config file: ./coolapk-api.json or ~/.config/coolapk-api/config.json
 """
 
-import json, os, sys, time, re, subprocess, signal, socket, urllib.request, urllib.error
+import json, os, sys, time, re, subprocess, signal, socket, urllib.request, urllib.error, urllib.parse
 from pathlib import Path
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -210,7 +210,12 @@ def api_get(path, headers=None):
         req.add_header(k, v)
     try:
         resp = urllib.request.urlopen(req, timeout=10)
-        return json.loads(resp.read())
+        data = json.loads(resp.read())
+        # Check API-level status
+        if isinstance(data, dict) and data.get("status") not in (None, 200):
+            msg = data.get("message", "Unknown error")
+            raise RuntimeError(f"API error: {msg}")
+        return data
     except urllib.error.HTTPError as e:
         try:
             body = json.loads(e.read().decode())
@@ -237,7 +242,10 @@ def get_feed_detail(feed_id):
 
 def search_feeds(keyword, page=1):
     """Search feeds by keyword."""
-    return api_get(f"/v6/search?type=feed&keyword={keyword}&page={page}")["data"]
+    encoded = urllib.parse.quote(keyword, safe='')
+    data = api_get(f"/v6/feed/search?keyword={encoded}&page={page}")
+    result = data.get("data", []) if isinstance(data, dict) else data
+    return result if isinstance(result, list) else []
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
@@ -270,6 +278,9 @@ def cmd_feeds(uid, page=1):
 def cmd_search(keyword, page=1):
     """CLI: search feeds by keyword."""
     results = search_feeds(keyword, page)
+    if not results:
+        print(f"=== 搜索: '{keyword}'，无结果 ===\n")
+        return
     print(f"=== 搜索: '{keyword}'，第 {page} 页，共 {len(results)} 条 ===\n")
     for item in results:
         title = item.get('title', '') or ''
